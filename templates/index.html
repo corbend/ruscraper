@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Ruscraper</title>
+	<link type="text/css" href="/assets/node_modules/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
+	<link type="text/css" href="/assets/node_modules/bootstrap/dist/css/bootstrap-theme.min.css" rel="stylesheet">
+	<script src="assets/node_modules/chart.js/dist/Chart.min.js"></script>
+	<script src="assets/node_modules/angular/angular.min.js"></script>
+	<script src="assets/js/main.js"></script>
+	<script src="assets/js/ThemeListCtrl.js"></script>
+</head>
+<body ng-app="App">
+	<div class="container-fluid" ng-controller="ThemeListCtrl">
+		<div class="navbar navbar-default navbar-fixed navbar-inversed">
+			<div class="navbar-brand">Ruscraper</div>
+		</div>
+		<div class="row">
+			<div class="col-md-6">
+				<div class="well">
+					<div class="pull-left"><h5>Current Date //date// //time//</h5></div>
+					<div class="pull-right"><h5>Last Update //lastUpdateDate//</h5></div>
+					<div class="pull-left"><h5>New themes</h5></div>
+					<div class="clearfix"></div>
+				</div>
+				<div class="panel panel-info" style="height: 200px;">
+					<div class="panel-heading"><h4>Options</h4></div>
+					<div class="panel-body">
+						<ul ng-repeat="theme in themes">
+							<li>//theme.name//</li>
+						</ul>
+						<button ng-click="runParse()" class="btn btn-lg btn-primary" ng-disabled="!ok">Parse</button>
+						<label ng-show="ok" class="label label-lg label-success">Ok</button>
+					</div>					
+				</div>
+				<div class="panel panel-info" style="height: 200px;">
+					<div class="panel-heading"><h4>Maintance Statistics</h4></div>
+					<div class="panel-body">
+						<div class="col-md-3">
+							<label class="col-md-10">Parse Attemps</label>
+							<label class="col-md-2 label label-info">//stat.parse_attemps//</label>
+						</div>
+						<div class="col-md-3">
+							<label class="col-md-10">Parse Attemps (OK)</label>
+							<label class="col-md-2 label label-success">//stat.parse_attemps//</label>
+						</div>
+						<div class="col-md-3">
+							<label class="col-md-10">Parse Attemps (Fail)</label>
+							<label class="col-md-2 label label-warning">//stat.parse_attemps//</label>
+						</div>
+					</div>					
+				</div>		
+			</div>
+			<div class="col-md-6">
+				<div class="panel panel-success" style="height: 520px;">
+					<div class="panel-heading">
+						<h4>Themes</h4>
+						<div ng-show="blocks.themes.loading">
+							<i class="glyphicon glyphicon-refresh"></i>
+						</div>
+					</div>
+					<div class="panel-body">
+						<ul ng-repeat="theme in themes">
+							<li>//theme.name//</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-md-12">
+				<div class="panel panel-primary" style="height: 400px;">
+					<div class="panel-heading"><h4>Charts</h4></div>
+					<div class="panel-body" style="height: 350px;">
+						<canvas height="180" width="980" id="parseActionChart"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</body>
+</html>
