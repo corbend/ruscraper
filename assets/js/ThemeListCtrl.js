@@ -26,12 +26,12 @@
 			$scope.$apply();
 		}, 1000)
 
-		$scope.runParse = function() {
+		$scope.runParse = function(url) {
 			$scope.ok = false;
 			$scope.blocks.themes.loading = true;
-			$http.post('/parse').success(function(resp) {
+			$http.post('/parse', {url: url}).success(function(resp) {
 				console.log(resp);
-				$scope.themes = resp.themes;
+				$scope.themes = resp;
 				$scope.ok = true;
 				$scope.blocks.themes.loading = false; 
 			});
@@ -65,6 +65,14 @@
 				});
 			}
 		}
+
+		$scope.getUrls = function() {
+			return $http.get('/parse_urls').success(function(resp) {
+				$scope.parseUrls = resp.parse_urls;
+			})
+		}
+
+		$scope.getUrls();
 
 		$scope.getStat = function() {
 
