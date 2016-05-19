@@ -1,10 +1,12 @@
 package main
 
 import (
+	"regexp"
 	"fmt"
 	"log"
 	"sync"
 	"ruscraper/conf"
+	"ruscraper/models"
 	"time"
 	"net/http"
 	"strings"
@@ -27,6 +29,7 @@ type Theme struct {
 	Size string
 	Date string
 	Answers string
+	PubYear int
 }
 
 type Page struct {
@@ -66,6 +69,8 @@ func fromCharmap(str string) string {
 	return string(buf)
 }
 
+var YearRegexp = regexp.MustCompile(`\[(\d{4})\,.*\]`)
+
 func ParsePage(baseUrl string, p int, pageChan chan Page) {
 
 	fmt.Println("parse page -> ", baseUrl, p)	
@@ -95,7 +100,7 @@ func ParsePage(baseUrl string, p int, pageChan chan Page) {
 		return
 	}
 
-	fmt.Println(doc)
+	//fmt.Println(doc)
 
 	doc.Find(".forumline tr.hl-tr td").Each(func(i int, s *goquery.Selection) {
 
@@ -111,6 +116,14 @@ func ParsePage(baseUrl string, p int, pageChan chan Page) {
 			if decodedTitle != "" {
 				if columnCnt == 1 {
 					theme.Name = decodedTitle
+					publicateYear := YearRegexp.FindString(decodedTitle)
+					publicateYear = strings.TrimRight(publicateYear, "]")
+					publicateYear = strings.TrimLeft(publicateYear, "[")
+					publicateYear = strings.Split(publicateYear, ",")[0]
+					if publicateYear != "" {					
+						year, _ := strconv.Atoi(publicateYear)
+						theme.PubYear = year
+					}
 				} else if columnCnt == 2 {
 					theme.Size = strings.Replace(fromCharmap(title), "\t", "", -1)
 				} else if columnCnt == 3 {
@@ -126,7 +139,7 @@ func ParsePage(baseUrl string, p int, pageChan chan Page) {
 
 	})
 
-	fmt.Println("find rows ->", len(themes))
+	//fmt.Println("find rows ->", len(themes))
 	//fmt.Println(themes)	
 	page := Page{p, themes}
 
@@ -247,6 +260,10 @@ func main() {
 		c.HTML(http.StatusOK, "index.html", gin.H{})
 	})
 
+	//SQLITE
+
+	models.CheckAndCreateTable("filters")
+
 	//REDIS
 
 	redisC := redis.NewClient(&redis.Options{
@@ -299,6 +316,97 @@ func main() {
 		c.JSON(200, gin.H{
 			"parse_urls": config.ParseUrls,
 		})
+	})
+
+	router.POST("/filters", func(c *gin.Context) {
+		//save filter to sqlite
+		fmt.Println("save filter")
+		var newFilter models.ThemeFilter
+		c.Bind(&newFilter)
+
+		term_values := []string{}
+
+		for _, term_value := range(strings.Split(c.PostForm("term_values"), ",")) {
+			term_values = append(term_values, c.PostForm(term_value))
+		}
+
+		if len(term_values) > 0 {
+			newFilter.TermValuesList = term_values
+		}
+
+		newFilter.SaveToDb()
+
+		c.JSON(200, gin.H{
+			"success": true,
+		})
+	})
+
+	router.POST("/filters/apply", func(c *gin.Context) {
+		fmt.Println("save filter")
+		var applyFilter models.ThemeFilter
+		c.Bind(&applyFilter)
+
+		termQuery := elastic.NewTermQuery(applyFilter.TermName, applyFilter.TermValues)
+
+		searchResult, err := funcUnit.Elastic.Search().
+		    Index("programming_videos").
+		    Query(termQuery).   // specify the query
+		    Sort(applyFilter.TermName, true). // sort by "user" field, ascending
+		    From(0).Size(10).   // take documents 0-9
+		    Pretty(true).       // pretty print request and response JSON
+		    Do()                // execute
+
+		if err != nil {
+		    // Handle error
+		    fmt.Println("elastic - search by filter fail", err, applyFilter)
+		    // panic(err)
+		}
+
+		results := gin.H{}
+
+		if searchResult.Hits != nil {
+			for index, hit := range searchResult.Hits.Hits {
+		        // hit.Index contains the name of the index
+
+		        // Deserialize hit.Source into a Tweet (could also be just a map[string]interface{}).
+		        var t Theme
+		        err := json.Unmarshal(*hit.Source, &t)
+		        if err != nil {
+		            // Deserialization failed
+		            log.Fatalf("Deserialization failed")
+		        }
+
+		        results[strconv.Itoa(index)] = t
+		    }
+		}
+
+		c.JSON(200, results)
+	})
+
+	router.GET("/filters", func(c *gin.Context) {
+
+		fmt.Println("get filters")
+
+		filtersQuery := "SELECT type, name, fvalues, elastic_filter FROM filters"
+
+		db1, r1 := models.RunQuery(filtersQuery)
+
+		results := gin.H{}
+		cnt := 0
+		for r1.Next() {
+			var themeFilter models.ThemeFilter
+			termValues := ""
+
+			r1.Scan(&themeFilter.FilterType, &themeFilter.TermName, &themeFilter.TermValues, &themeFilter.ElasticFilter)
+			themeFilter.TermValuesList = strings.Split(termValues, ",")
+			results[strconv.Itoa(cnt)] = themeFilter
+			cnt += 1
+		}
+
+		r1.Close()
+		db1.Close()
+
+		c.JSON(200, results)
 	})
 
 	router.POST("/parse", func(c *gin.Context) {

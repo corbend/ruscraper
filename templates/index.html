@@ -55,7 +55,25 @@
 				<div class="panel panel-info" style="min-height: 295px;">
 					<div class="panel-heading"><h4>Filters</h4></div>
 					<div class="panel-body">
-						
+						<button class="btn btn-success" ng-click="toggleFilterSave()">//createFilter ? 'Save' : 'Create'//</button>
+						<button ng-show="createFilter" class="btn btn-default" ng-click="cancelNewFilter()">Cancel</button>
+						<div ng-show="createFilter">
+							<form class="form-horizontal">
+								<input class="form-control" placeholder="name" ng-model="newFilter.term_name">
+								<input class="form-control" placeholder="type" ng-model="newFilter.filter_type">
+								<input class="form-control" placeholder="term values" ng-model="newFilter.term_values">
+								<input class="form-control" placeholder="elastic filter" ng-model="newFilter.elastic_filter">
+							</form>
+						</div>
+						<ul class="list-group">
+							<li class="list-group-item" ng-repeat="(key, filter_) in resultFilters">
+								<span>//filter_.filter_type//</span>
+								<span>//filter_.term_name//</span>
+								<span>//filter_.term_values//</span>
+								<span>//filter_.elastic_filter//</span>
+								<button class="btn btn-primary" ng-click="applyFilter(filter_)">Apply</button>
+							</li>
+						</ul>
 					</div>					
 				</div>
 				<div class="panel panel-info" style="min-height: 220px;">

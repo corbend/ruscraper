@@ -3,6 +3,7 @@
 	angular.module('App').controller('ThemeListCtrl', function($scope, $http, $filter) {
 
 		$scope.themes = [];
+		$scope.resultFilters = [];
 		$scope.blocks = {themes: {loading: false}};
 		$scope.ok = true;
 
@@ -73,6 +74,43 @@
 		}
 
 		$scope.getUrls();
+
+		$scope.getResultFilters = function() {
+			return $http.get('/filters').success(function(resp) {
+				$scope.resultFilters = resp;
+			})
+		}
+
+		$scope.getResultFilters();
+
+		$scope.newFilter = {};
+		$scope.createFilter = false;
+
+		$scope.toggleFilterSave = function() {
+			if (!$scope.createFilter) $scope.createNewFilter();
+			else $scope.confirmNewFilterSave();
+		}
+
+		$scope.createNewFilter = function() {
+			$scope.newFilter = {};
+			$scope.createFilter = true;
+		}
+
+		$scope.confirmNewFilterSave = function() {
+			return $http.post('/filters', $scope.newFilter).success(function(resp) {
+				console.log(resp);
+			})
+		}
+
+		$scope.cancelNewFilter = function() {
+			$scope.createFilter = false;
+		}
+
+		$scope.applyFilter = function(filter_) {
+			return $http.post('/filters/apply', filter_).success(function(resp) {
+				$scope.themes = resp;
+			})
+		}
 
 		$scope.getStat = function() {
 
