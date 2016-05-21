@@ -1,7 +1,18 @@
-{
+{	
+	"elastic.indexes": [
+		"programming_videos",
+		"programming_books"
+	],
+	"parse_interval": 10,
+	"parse_pages_num": 10,
 	"parse_urls": [
 		"http://maintracker.org/forum/viewforum.php?f=1565",
 		"http://maintracker.org/forum/viewforum.php?f=1425",
 		"http://maintracker.org/forum/viewforum.php?f=1426"
-	]	
+	],
+	"url_to_elastic": {
+		"http://maintracker.org/forum/viewforum.php?f=1565": "programming_videos",
+		"http://maintracker.org/forum/viewforum.php?f=1425": "programming_books",
+		"http://maintracker.org/forum/viewforum.php?f=1426": "programming_books"
+	}
 }

@@ -3,17 +3,10 @@ package models
 import (
 	"fmt"
 	"log"
+	"reflect"
 	"database/sql"
 	_ "github.com/mattn/go-sqlite3"
 )
-
-type ThemeFilter struct {
-	TermName string `json:"term_name"`
-	TermValues string `json:"term_values"`
-	TermValuesList []string
-	FilterType string `json:"filter_type"`
-	ElasticFilter string `json:"elastic_filter"`
-}
 
 func ConnectToDb(dbName string) (db *sql.DB) {
 	db, err := sql.Open("sqlite3", dbName)
@@ -39,32 +32,9 @@ func RunQuery(query string) (db *sql.DB, rows *sql.Rows){
 		log.Fatalf("errors on query %s\r\n", err)
 	}
 
-	fmt.Printf("query execution OK %s\r\n")
+	fmt.Printf("query execution OK\r\n")
 
 	return db, rows
-}
-
-func (self *ThemeFilter) SaveToDb() (bool, error) {
-
-	query := "INSERT INTO filters (type, name, fvalues, elastic_filter) VALUES ("
-	query += fmt.Sprintf("'%s'", self.FilterType) + ","		
-	query += fmt.Sprintf("'%s'", self.TermName) + ","
-	query += fmt.Sprintf("'%s'", self.TermValues) + ","
-	query += fmt.Sprintf("'%s'", self.ElasticFilter) + ");"
-	
-	fmt.Printf("run query -->\r\n%s\r\n, %s\r\n", query, self)
-	db2, r2 := RunQuery(query)
-
-	var created string
-	r2.Next()
-	r2.Scan(&created)
-
-	fmt.Printf("create - %s\r\n", created)
-
-	defer db2.Close()
-	defer r2.Close()
-
-	return true, nil
 }
 
 func CheckTable(tableName string) (bool, error) {
@@ -82,9 +52,41 @@ func CheckTable(tableName string) (bool, error) {
 	return exist != "", nil
 }
 
-func CreateTable(tableName string) (bool, error) {
+func CreateTable(tableName string, model interface{}) (bool, error) {
 	fmt.Println("CREATE TABLE")
-	query := fmt.Sprintf("CREATE TABLE %s(id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR, type VARCHAR, fvalues VARCHAR, elastic_filter VARCHAR)", tableName);
+
+	tableColumns := ""
+
+ 	v := reflect.ValueOf(model)
+
+	for i := 0; i < v.NumField(); i++ {
+
+		value := v.Field(i).Interface()
+		tagName := v.Type().Field(i).Tag.Get("json")
+		fieldName := v.Type().Field(i).Name
+
+		_, is_string := value.(string)
+		_, is_int := value.(int)
+		_, is_int64 := value.(int64)
+		_, is_array := value.([]interface{})
+		_, is_str_array := value.([]string)
+		_, is_int_array := value.([]int)
+
+		if fieldName != "Id" {
+			if is_string {
+				tableColumns += fmt.Sprintf(", %s VARCHAR", tagName)
+			} else if is_int64 || is_int {
+				tableColumns += fmt.Sprintf(", %s INTEGER", tagName)
+			} else if is_array || is_str_array || is_int_array {
+				fmt.Println("skip field", fieldName)
+			} else {
+				log.Fatalf("not recognized field type", fieldName)
+			}
+		}
+	}
+
+	query := fmt.Sprintf("CREATE TABLE %s(id INTEGER PRIMARY KEY AUTOINCREMENT%s)", tableName, tableColumns);
+	fmt.Println(query)
 	db2, r2 := RunQuery(query)
 
 	var created string
@@ -99,7 +101,7 @@ func CreateTable(tableName string) (bool, error) {
 	return created != "", nil
 }
 
-func CheckAndCreateTable(tableName string) (bool) {
+func CheckAndCreateTable(tableName string, model interface{}) (bool) {
 
 	res, err := CheckTable(tableName)
 
@@ -108,7 +110,7 @@ func CheckAndCreateTable(tableName string) (bool) {
 	}
 
 	if !res {
-		res, err = CreateTable(tableName)
+		res, err = CreateTable(tableName, model)
 
 		if err != nil {
 			log.Fatalf("create table error")

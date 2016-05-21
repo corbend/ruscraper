@@ -9,6 +9,10 @@ import (
 
 type Conf struct {
 	ParseUrls []string `json:"parse_urls"`
+	ParsePagesNum int `json:"parse_pages_num"`
+	ElasticIndexes []string `json:"elastic.indexes"`
+	ParseInterval int `json:"parse_interval"`
+	UrlToElastic map[string]string `json:"url_to_elastic"`
 }
 
 func (self *Conf) Read() (err error) {

@@ -18,14 +18,14 @@
 			<div class="col-md-6">
 				<div class="well">
 					<div class="pull-left"><h5>Current Date //date// //time//</h5></div>
-					<div class="pull-right"><h5>Last Update //lastUpdateDate//</h5></div>
-					<div class="pull-left"><h5>New themes</h5></div>
+					<div class="pull-right"><h5>Last Update //stat.new_hits_update_time//</h5></div>
+					<div class="pull-left"><h5>New themes //newCnt//</h5></div>
 					<div class="clearfix"></div>
 				</div>
 				<div class="panel panel-info" style="height: 200px;">
 					<div class="panel-heading"><h4>Options</h4></div>
 					<div class="panel-body">
-					</div>					
+					</div>
 				</div>
 				<div class="panel panel-info" style="height: 200px;">
 					<div class="panel-heading"><h4>Maintance Statistics</h4></div>
@@ -59,10 +59,11 @@
 						<button ng-show="createFilter" class="btn btn-default" ng-click="cancelNewFilter()">Cancel</button>
 						<div ng-show="createFilter">
 							<form class="form-horizontal">
-								<input class="form-control" placeholder="name" ng-model="newFilter.term_name">
-								<input class="form-control" placeholder="type" ng-model="newFilter.filter_type">
-								<input class="form-control" placeholder="term values" ng-model="newFilter.term_values">
-								<input class="form-control" placeholder="elastic filter" ng-model="newFilter.elastic_filter">
+								<input class="form-control" placeholder="Name" ng-model="newFilter.term_name">
+								<input class="form-control" placeholder="Type" ng-model="newFilter.filter_type">
+								<input class="form-control" placeholder="Term Values" ng-model="newFilter.term_values">
+								<input class="form-control" placeholder="Elastic filter" ng-model="newFilter.index_name">
+								<input class="form-control" placeholder="Index Name" ng-model="newFilter.elastic_filter">
 							</form>
 						</div>
 						<ul class="list-group">
@@ -70,8 +71,10 @@
 								<span>//filter_.filter_type//</span>
 								<span>//filter_.term_name//</span>
 								<span>//filter_.term_values//</span>
+								<span>//filter_.index_name//</span>
 								<span>//filter_.elastic_filter//</span>
 								<button class="btn btn-primary" ng-click="applyFilter(filter_)">Apply</button>
+								<button class="btn btn-danger" ng-click="removeFilter(filter_)">Remove</button>
 							</li>
 						</ul>
 					</div>					

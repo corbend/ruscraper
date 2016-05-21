@@ -77,7 +77,7 @@
 
 		$scope.getResultFilters = function() {
 			return $http.get('/filters').success(function(resp) {
-				$scope.resultFilters = resp;
+				$scope.resultFilters = resp.filters;
 			})
 		}
 
@@ -112,13 +112,40 @@
 			})
 		}
 
+		$scope.removeFilter = function(filter_) {
+			return $http({method: 'DELETE', url: '/filters/' + filter_.id}).success(function(resp) {
+				console.log("delete success");
+
+				var removedFilter;
+
+				Object.keys($scope.resultFilters).forEach(function(k, index) {
+					var f = $scope.resultFilters[k]
+					if (f.id == filter_.id) {
+						removedFilter = k;
+					}
+				})
+
+				if (removedFilter) {
+					delete $scope.resultFilters[removedFilter];
+				}
+			})
+		}
+
 		$scope.getStat = function() {
 
 			return $http.get('/stat').success(function(resp) {
 
 				$scope.stat = resp;
+				var date = new Date();
+				var indexes = ['programming_books', 'programming_videos'];
+				var dateStr = String(date.getFullYear()) + "-" + String((date.getMonth() + 1)) + "-" + String(date.getDate()) + "T" + String(date.getHours()) + ":00:00";
+				console.log("stat date", dateStr)
+				sum = 0;
+				indexes.forEach(function(index) {
+					sum += Number(resp['new_hits_cnt_' + dateStr + "_" + index]);
+				})
+				$scope.newCnt = sum;
 				$scope.drawChart();
-
 			})
 		}
 
