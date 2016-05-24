@@ -34,6 +34,7 @@ func SetupDb() {
 
 	//SQLITE
 
+	models.CheckAndCreateTable("categories", models.ThemeCategory{})
 	models.CheckAndCreateTable("filters", models.ThemeFilter{})
 	models.CheckAndCreateTable("results", models.ParseResult{})
 
@@ -65,7 +66,7 @@ func SetupElastic() {
 func SetupQueue() {
 	connection := rmq.OpenConnection("redis", "tcp", "localhost:6379", 1)
 	taskQueue := connection.OpenQueue("ParseTaskQueue")
-	taskQueue.StartConsuming(10, time.Second)
+	taskQueue.StartConsuming(10, 100 * time.Millisecond)
 	Units.Queue = taskQueue
 }
 

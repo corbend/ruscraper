@@ -7,6 +7,7 @@
 	<script src="assets/node_modules/chart.js/dist/Chart.min.js"></script>
 	<script src="assets/node_modules/angular/angular.min.js"></script>
 	<script src="assets/js/main.js"></script>
+	<script src="assets/js/WebSocketService.js"></script>
 	<script src="assets/js/ThemeListCtrl.js"></script>
 </head>
 <body ng-app="App">
@@ -15,7 +16,7 @@
 			<div class="navbar-brand">Ruscraper</div>
 		</div>
 		<div class="row">
-			<div class="col-md-6">
+			<div class="col-md-4">
 				<div class="well">
 					<div class="pull-left"><h5>Current Date //date// //time//</h5></div>
 					<div class="pull-right"><h5>Last Update //stat.new_hits_update_time//</h5></div>
@@ -23,35 +24,79 @@
 					<div class="clearfix"></div>
 				</div>
 				<div class="panel panel-info" style="height: 200px;">
-					<div class="panel-heading"><h4>Options</h4></div>
+					<div class="panel-heading"><h4>Parse Statistics</h4></div>
 					<div class="panel-body">
+						<div class="col-md-4">
+							<label class="col-md-6">Attemps</label>
+							<label class="col-md-4 label label-info">//stat.parse_attemps//</label>
+						</div>
+						<div class="col-md-4">
+							<label class="col-md-6">Completed</label>
+							<label class="col-md-4 label label-success">//stat.parse_fails//</label>
+						</div>
+						<div class="col-md-4">
+							<label class="col-md-6">Failed</label>
+							<label class="col-md-4 label label-warning">//stat.parse_success//</label>
+						</div>
+											
+					</div>		
+				</div>
+				<div class="panel panel-primary">
+					<div class="panel-heading"><h4>Elastic Stat</h4></div>
+					<div class="panel-body">
+						<ul class="list-group">
+							<li class= "list-group-item" ng-repeat="ind in queryIndexes">	
+								<span>//ind.name//</span>
+								<span>//elasticStatByIndex[ind.name]//</span>
+							</li>
+						</ul>
 					</div>
-				</div>
-				<div class="panel panel-info" style="height: 200px;">
-					<div class="panel-heading"><h4>Maintance Statistics</h4></div>
-					<div class="panel-body">
-						<div class="col-md-3">
-							<label class="col-md-10">Parse Attemps</label>
-							<label class="col-md-2 label label-info">//stat.parse_attemps//</label>
-						</div>
-						<div class="col-md-3">
-							<label class="col-md-10">Parse Attemps (OK)</label>
-							<label class="col-md-2 label label-success">//stat.parse_attemps//</label>
-						</div>
-						<div class="col-md-3">
-							<label class="col-md-10">Parse Attemps (Fail)</label>
-							<label class="col-md-2 label label-warning">//stat.parse_attemps//</label>
-						</div>
-					</div>					
-				</div>
+				</div>	
 				<div class="panel panel-primary" style="height: 400px;">
 					<div class="panel-heading"><h4>Charts</h4></div>
 					<div class="panel-body" style="height: 450px;">
 						<canvas height="360" width="980" id="parseActionChart"></canvas>
 					</div>
+					<div class="panel-body" style="height: 450px;">
+						<canvas height="360" width="980" id="elasticStatChart"></canvas>
+					</div>
+				</div>				
+			</div>
+			<div class="col-md-5">				
+				<div class="panel panel-success" style="height: 440px; position: relative;">
+					<div class="panel-heading">
+						<h4>Favorites</h4>
+						<div ng-show="blocks.themes.loading">
+							<i class="glyphicon glyphicon-refresh"></i>
+						</div>
+						<select ng-model="filters.current" ng-options="filt as filt.name for filt in queryFilters track by filt.name">
+						</select>
+						<select ng-model="filters.queryIndex" ng-options="ind as ind.name for ind in queryIndexes track by ind.name">
+						</select>
+					</div>
+					<div class="panel-body" style="position: absolute; height: 350px; overflow-y: auto;">
+						<ul class="list-group" ng-repeat="(key, theme) in favoritesThemes">
+							<li class="list-group-item"><strong>//$index+1	//</strong>//theme.Name//
+								<span>//theme.CreateDateStr//</span>
+							</li>
+						</ul>
+					</div>
+				</div>
+				<div class="panel panel-success" style="height: 440px;">
+					<div class="panel-heading">
+						<h4>Themes</h4>
+						<div ng-show="blocks.themes.loading">
+							<i class="glyphicon glyphicon-refresh"></i>
+						</div>
+					</div>
+					<div class="panel-body">
+						<ul class="list-group" ng-repeat="theme in themes">
+							<li class="list-group-item"><strong>//$index+1	//</strong>//theme.Name//</li>
+						</ul>
+					</div>
 				</div>
 			</div>
-			<div class="col-md-6">
+			<div class="col-md-3">
 				<div class="panel panel-info" style="min-height: 295px;">
 					<div class="panel-heading"><h4>Filters</h4></div>
 					<div class="panel-body">
@@ -79,30 +124,24 @@
 						</ul>
 					</div>					
 				</div>
-				<div class="panel panel-info" style="min-height: 220px;">
-					<div class="panel-heading"><h4>Parsed Urls</h4></div>
+				<div class="panel panel-info" style="min-height: 295px;">
+					<div class="panel-heading"><h4>Categories</h4></div>
 					<div class="panel-body">
-						<ul style="display: table" ng-repeat="url in parseUrls">
-							<li style="display: table-cell">
-								//url//
-								<button ng-click="runParse(url)" class="btn btn-primary" ng-disabled="!ok">Parse</button>
-							</li>							
-						</ul>						
-						<label ng-show="ok" class="label label-lg label-success">Ok</button>
-					</div>					
-				</div>
-				<div class="panel panel-success" style="min-height: 400px;">
-					<div class="panel-heading">
-						<h4>Themes</h4>
-						<div ng-show="blocks.themes.loading">
-							<i class="glyphicon glyphicon-refresh"></i>
+						<button class="btn btn-success" ng-click="toggleCategorySave()">//createCategory ? 'Save' : 'Create'//</button>
+						<button ng-show="createCategory" class="btn btn-default" ng-click="cancelNewCategory()">Cancel</button>
+						<div ng-show="createCategory">
+							<form class="form-horizontal">
+								<input class="form-control" placeholder="Name" ng-model="newCategory.name">
+							</form>
 						</div>
-					</div>
-					<div class="panel-body">
-						<ul class="list-group" ng-repeat="theme in themes">
-							<li class="list-group-item"><strong>//$index+1	//</strong>//theme.Name//</li>
+						<ul class="list-group">
+							<li class="list-group-item" ng-repeat="(key, category) in categories">
+								<span>//category.name//</span>
+								<button class="btn btn-primary" ng-click="applyFilter(category)">Apply</button>
+								<button class="btn btn-danger" ng-click="removeCategory(category)">Remove</button>
+							</li>
 						</ul>
-					</div>
+					</div>					
 				</div>
 			</div>
 		</div>

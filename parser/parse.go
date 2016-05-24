@@ -56,7 +56,7 @@ func ReadData(pagesCnt int, pageChan chan models.Page, wg *sync.WaitGroup, parse
 	// }()
 
 	for page := range(pageChan) {
-		fmt.Printf("page %d parsed\r\n", page.Number)
+		//fmt.Printf("page %d parsed\r\n", page.Number)
 		wg.Done()
 		parsedPages = append(parsedPages, page)
 
@@ -87,12 +87,11 @@ var YearRegexp = regexp.MustCompile(`\[(\d{4})\,.*\]`)
 
 func ParsePage(baseUrl string, p int, pageChan chan models.Page) {
 
-	fmt.Println("parse page -> ", baseUrl, p)	
+	//fmt.Println("parse page -> ", baseUrl, p)	
 	var doc *goquery.Document
 
 	if p > 0 {
 		url := baseUrl + "&start=" + strconv.Itoa(p * 50)
-		fmt.Println(url)
 		doc, _ = goquery.NewDocument(url)
 	} else {
 		doc, _ = goquery.NewDocument(baseUrl)
@@ -155,7 +154,7 @@ func ParsePage(baseUrl string, p int, pageChan chan models.Page) {
 
 func StartParse(urlParse string, pages int) (themes []models.Theme) {
 
-	fmt.Printf("start parse=%s\r\n", urlParse)
+	//fmt.Printf("start parse=%s\r\n", urlParse)
 	err := core.Units.Redis.Incr("parse_attemps").Err()
 
 	if err != nil {

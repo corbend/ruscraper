@@ -30,8 +30,6 @@ func SaveToStore(themes []models.Theme, indexName string) {
 		    // panic(err)
 		}
 
-		fmt.Println("elastic - search theme", t.Name, searchResult.TotalHits())
-
 		t.Read = true
 
 		if searchResult == nil || searchResult.TotalHits() == int64(0) {
@@ -58,7 +56,7 @@ func SaveToStore(themes []models.Theme, indexName string) {
 			_ = core.Units.Redis.Set("new_hits_update_time", lastUpdateTime, 0).Err()
 			t.Read = false
 		} else {
-			fmt.Println("skip")
+			//fmt.Println("skip")
 		}
 	}
 }

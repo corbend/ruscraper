@@ -15,7 +15,79 @@ import (
 	"ruscraper/models"
 	"gopkg.in/olivere/elastic.v3"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 )
+
+var wsupgrader = websocket.Upgrader{
+    ReadBufferSize:  1024,
+    WriteBufferSize: 1024,
+}
+
+type WebsockMessage struct {
+	Action string
+	Payload []byte
+}
+
+type ParseStatusPayload struct {
+	Url string
+}
+
+func wshandler(w http.ResponseWriter, r *http.Request) {
+    conn, err := wsupgrader.Upgrade(w, r, nil)
+    if err != nil {
+        fmt.Println("Failed to set websocket upgrade: %+v", err)
+        return
+    }
+
+    for {
+        t, msg, err := conn.ReadMessage()
+        if err != nil {
+            break
+        }
+
+        fmt.Println("web socket request", msg)
+
+        var isActive = false;
+
+        incomeWebsockMessage := WebsockMessage{}
+
+        err = json.Unmarshal(msg, &incomeWebsockMessage)
+
+        if incomeWebsockMessage.Action == "get_active_status" {
+        	for i := 0; i < 10; i++ {
+        		r, _ := core.Units.Redis.Get("active_parse_task_" + strconv.Itoa(i)).Result()
+        		if r == string(incomeWebsockMessage.Payload) {
+        			isActive = true
+        			websockMessage := WebsockMessage{}
+        			websockMessage.Action = "parse_active"
+        			payload := ParseStatusPayload{}
+        			payload.Url = string(incomeWebsockMessage.Payload)
+        			p, _ := json.Marshal(&payload)
+        			websockMessage.Payload = p
+        			p, _ = json.Marshal(&websockMessage)
+        			conn.WriteMessage(t, p)
+        			conn.WriteMessage(t, msg)
+        		}
+        	}
+
+        	if !isActive {
+        		websockMessage := WebsockMessage{}
+        		websockMessage.Action = "parse_nonactive"
+        		payload := ParseStatusPayload{}
+        		payload.Url = string(incomeWebsockMessage.Payload)
+        		p, _ := json.Marshal(&payload)
+        		websockMessage.Payload = p
+        		p, _ = json.Marshal(&websockMessage)
+        		conn.WriteMessage(t, p)
+        	}
+        }
+    }
+}
+
+type ElasticIndexStat struct {
+	Name string
+	TotalDocs int64
+}
 
 func main() {
 
@@ -30,7 +102,9 @@ func main() {
 		c.HTML(http.StatusOK, "index.html", gin.H{})
 	})
 
-	fmt.Println("Redis Queue - ok")
+	router.GET("/ws", func(c *gin.Context) {
+        wshandler(c.Writer, c.Request)
+    })
 
 	router.GET("/stat", func(c *gin.Context) {
 
@@ -45,6 +119,20 @@ func main() {
 
 		lastUpdateTime, _ := core.Units.Redis.Get("new_hits_update_time").Result()
 
+		indexes := []string{"programming_videos", "programming_books"}
+
+		indexesStats := []ElasticIndexStat{}
+
+		for _, idxName := range(indexes) {
+			stats, _ := core.Units.Elastic.IndexStats(idxName).Do()
+			stat := stats.Indices[idxName]
+
+			indexesStats = append(indexesStats, ElasticIndexStat{
+				idxName,
+				stat.Total.Docs.Count,
+			})
+		}
+		
 		c.JSON(200, gin.H{
 			"parse_attemps": parseAttemps,
 			"new_hits_cnt_" + dateStr + "_programming_books": newHitsCnt1,
@@ -52,6 +140,7 @@ func main() {
 			"new_hits_update_time": lastUpdateTime,
 			"running_tasks_cnt": runningTasksCnt,
 			"redisStat": "{}",
+			"elasticIndexesStats": indexesStats,
 		})
 	})
 
@@ -79,6 +168,22 @@ func main() {
 		}
 
 		newFilter.SaveToDb()
+
+		c.JSON(200, gin.H{
+			"success": true,
+		})
+	})
+
+	router.GET("/categories", func(c *gin.Context) {
+		c.JSON(200, models.GetAllCategories(c))
+	})
+
+	router.POST("/categories", func(c *gin.Context) {
+
+		fmt.Println("save category")
+		var newCategory models.ThemeCategory
+		c.Bind(&newCategory)
+		newCategory.SaveCategoryToDb()
 
 		c.JSON(200, gin.H{
 			"success": true,
@@ -129,16 +234,25 @@ func main() {
 
 	router.GET("/filters/:filter_name", func(c *gin.Context) {
 
-		filterName, _ = c.Params.Get('filter_name')
+		filterName, _ := c.Params.Get("filter_name")
+		indexName := c.Request.URL.Query().Get("indexName")
+		fmt.Println("INDEX", indexName)
+		var records = []*models.Theme{}
 
-		if filterName == 'LastDay' {
-			records, _ := models.GetLastThemes(nowDayTime.Unix(), time.Now().Unix()))
+		if filterName == "LastDay" {
+			records, _ = models.GetLastThemes(core.Units.Elastic, indexName, 0, time.Second)
+		} else if filterName == "Last5Days" {
+			records, _ = models.GetLastThemes(core.Units.Elastic, indexName, 24 * 5, time.Hour)
+		} else if filterName == "Last10Days" {
+			records, _ = models.GetLastThemes(core.Units.Elastic, indexName, 24 * 10, time.Hour)
+		} else if filterName == "LastMonth" {
+			records, _ = models.GetLastThemes(core.Units.Elastic, indexName, 24 * 31, time.Hour)
 		}
 		
 		results := gin.H{}
-		    
-	 	for index, r := records {
-			results[strconv.Itoa(index)] = r
+
+	 	for index, r := range(records) {
+			results[strconv.Itoa(index)] = *r
 	 	}
 
 		c.JSON(200, results)
@@ -192,26 +306,34 @@ func main() {
 		core.Units.Redis.Set("new_hits_cnt_"+dateStr+"_programming_books", 0, 0).Err()
 	}
 
-	for _, urlToParse := range(core.Config.ParseUrls) {
-		scheduler.RunTimer(core.Config.ParseInterval, 		
+	for w := 0; w < 10; w++ {
+		go queue.ParseResultToQueue()	
+	}
+	
+	scheduler.RunTimer(core.Config.ParseInterval, 	
 		func() {
 			r, _ := core.Units.Redis.Get("ruscraper_parse_lock").Result()
-			if r == "" {
-				task := queue.ParseTask{}
-				task.Url = urlToParse
-				task.Action = "start"
-				task.NumPages = core.Config.ParsePagesNum
-				task.IndexName = core.Config.UrlToElastic[urlToParse]
-				core.Units.Redis.Incr("running_tasks_cnt")
-				fmt.Println("run task --")
-				err := core.Units.Redis.Set("ruscraper_parse_lock", "1", 1).Err()
-				if err != nil {
-					fmt.Println("error on redis", err)
+			for k, urlToParse := range(core.Config.ParseUrls) {
+				if r == "" {					
+					go func(urlToParse string) {
+						task := queue.ParseTask{}
+						task.Url = urlToParse
+						task.Action = "start"
+						task.NumPages = core.Config.ParsePagesNum
+						task.IndexName = core.Config.UrlToElastic[urlToParse]
+						core.Units.Redis.Incr("running_tasks_cnt")
+						core.Units.Redis.Set("active_parse_task_" + strconv.Itoa(k), urlToParse, 0)
+						err := core.Units.Redis.Set("ruscraper_parse_lock", "1", 1).Err()
+						if err != nil {
+							//fmt.Println("error on redis", err)
+						}
+
+						queue.RunTask(task)
+					}(urlToParse)
+					time.Sleep(120 * time.Millisecond)
 				}
-				queue.RunTask(task)
 			}
 		});
-	}
 
 	router.Run()
 }

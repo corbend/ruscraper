@@ -21,14 +21,12 @@ func (self *ParseResult) SaveToDb() (bool, error) {
 	query += fmt.Sprintf("'%s'", self.Status) + ","
 	query += fmt.Sprintf("'%s'", self.Uuid) + ");"
 	
-	fmt.Printf("run query -->\r\n%s\r\n, %s\r\n", query, self)
+	//fmt.Printf("run query -->\r\n%s\r\n, %s\r\n", query, self)
 	db2, r2 := RunQuery(query)
 
 	var created string
 	r2.Next()
 	r2.Scan(&created)
-
-	fmt.Printf("create - %s\r\n", created)
 
 	defer db2.Close()
 	defer r2.Close()

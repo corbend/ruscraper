@@ -1,6 +1,6 @@
 (function(global, angular) {
 
-	angular.module('App').controller('ThemeListCtrl', function($scope, $http, $filter) {
+	angular.module('App').controller('ThemeListCtrl', function($scope, $http, $filter, websocket) {
 
 		$scope.themes = [];
 		$scope.resultFilters = [];
@@ -38,14 +38,47 @@
 			});
 		}
 
+		//polling by websocket parsed url statuses
+		websocket.setMessageHandler(function(action, payload) {
+			if (action == "parse_active") {
+				var url;
+				$scope.parseUrls.forEach(function(url) {
+					if (url == payload.Url) {
+						url = payload;
+					}
+				})
+
+				if (url) {
+					var idx = $scope.parseUrls.indexOf(url);
+					$scope.parseUrls[idx].active = true;
+				}
+
+			} else if (action == "parse_nonactive") {
+				var url;
+				$scope.parseUrls.forEach(function(url) {
+					if (url == payload.Url) {
+						url = payload;
+					}
+				})
+
+				if (url) {
+					var idx = $scope.parseUrls.indexOf(url);
+					$scope.parseUrls[idx].active = false;
+				}
+			} else if (action == "new_update") {
+
+			}
+
+			$scope.$apply();
+		})
+
 		$scope.chart = null;
 
 		$scope.drawChart = function() {
 
-			var ctx = document.getElementById("parseActionChart");
-
 			if (!$scope.chart) {
-				$scope.chart = new Chart(ctx, {
+
+				$scope.chart = new Chart(document.getElementById("parseActionChart"), {
 				    type: 'bar',
 				    data: {
 				        labels: ["Red", "Blue", "Yellow", "Green", "Purple", "Orange"],
@@ -65,11 +98,35 @@
 					}
 				});
 			}
+
+			if (!$scope.hourNewHits) {
+
+			}
+
+			if (!$scope.elasticStatChart) {
+
+			}
+
+			if (!$scope.parseChart) {
+
+			}
+
+			if (!$scope.redisStatChart) {
+
+			}
 		}
 
 		$scope.getUrls = function() {
 			return $http.get('/parse_urls').success(function(resp) {
-				$scope.parseUrls = resp.parse_urls;
+				parseUrls = [];
+				resp.parse_urls.forEach(function(u) {
+					parseUrls.push({
+						url: u,
+						active: false
+					});
+				});
+
+				$scope.parseUrls = parseUrls;
 			})
 		}
 
@@ -131,6 +188,60 @@
 			})
 		}
 
+		$scope.getCategories = function() {
+			return $http.get('/categories').success(function(resp) {
+				$scope.categories = resp.categories;
+			})
+		}
+
+		$scope.getCategories();
+		//categories
+		$scope.newCategory = {};
+		$scope.createCategory = false;
+
+		$scope.toggleCategorySave = function() {
+			if (!$scope.createCategory) $scope.createNewCategory();
+			else $scope.confirmNewCategorySave();
+		}
+
+		$scope.createNewCategory = function() {
+			$scope.newCategory = {};
+			$scope.createCategory = true;
+		}
+
+		$scope.confirmNewCategorySave = function() {
+			return $http.post('/categories', $scope.newCategory).success(function(resp) {
+				console.log(resp);
+				$scope.cancelNewCategory();
+				$scope.getCategories();
+			})
+		}
+
+		$scope.cancelNewCategory = function() {
+			$scope.createCategory = false;
+		}
+
+		$scope.removeCategory = function(category) {
+			return $http({method: 'DELETE', url: '/categories/' + category.id}).success(function(resp) {
+				console.log("delete success");
+
+				var removedFilter;
+
+				Object.keys($scope.categories).forEach(function(k, index) {
+					var f = $scope.categories[k]
+					if (f.id == category.id) {
+						removedFilter = k;
+					}
+				})
+
+				if (removedFilter) {
+					delete $scope.categories[removedFilter];
+				}
+			})
+		}
+
+		$scope.elasticStatByIndex = {}
+
 		$scope.getStat = function() {
 
 			return $http.get('/stat').success(function(resp) {
@@ -144,14 +255,57 @@
 				indexes.forEach(function(index) {
 					sum += Number(resp['new_hits_cnt_' + dateStr + "_" + index]);
 				})
+
 				$scope.newCnt = sum;
+
+				var indexNames = [];
+				$scope.queryIndexes.forEach(function(idx) {
+					indexNames.push(idx.name);						
+		 		});
+				$scope.stat.elasticIndexesStats.forEach(function(ind) {					
+			 		$scope.elasticStatByIndex[ind.Name] = ind.TotalDocs;
+			 		console.log($scope.elasticStatByIndex[ind.Name]);
+			 	})
+
 				$scope.drawChart();
+			})
+		}
+
+		$scope.queryFilters = [
+			{name: 'LastDay'}, 
+			{name: 'Last5Days'}, 
+			{name: 'Last10Days'}, 
+			{name: 'LastMonth'}, 
+			{name: 'Last6Month'}
+		];
+
+		$scope.queryIndexes = [{name: 'programming_books'}, {name: 'programming_videos'}];
+
+		$scope.filters = {
+			current: $scope.queryFilters[0],
+			queryIndex: $scope.queryIndexes[0]
+		}
+
+		$scope.getFavorites = function() {
+			return $http.get('/filters/' + $scope.filters.current.name + "?indexName=" + $scope.filters.queryIndex.name).success(function(resp) {
+				$scope.favoritesThemes = {};				
+				Object.keys(resp).forEach(function(k) {					
+					$scope.favoritesThemes[k] = resp[k];
+					$scope.favoritesThemes[k].CreateDateStr = (new Date(resp[k].CreateDate * 1000)).toString();
+				})
+				console.log($scope.favoritesThemes);
 			})
 		}
 
 		setInterval(function() {
 			$scope.getStat().success(function() {
 				console.log("stat ok");
+			})
+		}, 2000)
+
+		setInterval(function() {
+			$scope.getFavorites().success(function() {
+				console.log("refresh last day themes");
 			})
 		}, 2000)
 	})

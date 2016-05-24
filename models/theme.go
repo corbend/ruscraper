@@ -42,17 +42,16 @@ type ThemeFinder struct {
 // 	"LastDay": GetLastDay,
 // }
 
-func (f *ThemeFinder) Find(client *elastic.Client, query *elastic.Query) ([]*Theme, error) {
+func (f *ThemeFinder) Find(client *elastic.Client, indexName string, getQuery func(*elastic.SearchService) *elastic.SearchService) ([]*Theme, error) {
 
-	search := client.Search().Index("hollywood").Type("film")
+	search := client.Search().Index(indexName).Type("theme")
 
-	if query != nil {
-		search := query
+	if getQuery != nil {
+		search = getQuery(search)
 	} else {
 		search = f.Query(search)
 	}
 
-    search = f.Query(search)
     search = f.Aggregate(search)
     // search = f.sorting(search)
     // search = f.paginate(search)
@@ -147,7 +146,7 @@ func (f *ThemeFinder) Query(service *elastic.SearchService) *elastic.SearchServi
     }
 
     // TODO Add other queries and filters here, maybe differentiating between AND/OR etc.
-
+    fmt.Println("custom query", q)
     service = service.Query(q)
     return service
 }
@@ -159,20 +158,36 @@ func (f *ThemeFinder) Aggregate(service *elastic.SearchService) *elastic.SearchS
     return service
 }
 
-func (f *ThemeFinder) GetLastDay() elastic.Query {
+func (f *ThemeFinder) GetLastDay(service *elastic.SearchService) *elastic.SearchService {
 
 	qu := elastic.NewRangeQuery("CreateDate").From(f.create_date_from).To(f.create_date_to)
-	q, _ := qu.Source()
-	return q
+	q := elastic.NewBoolQuery()
+	q = q.Must(qu)
+	year, _, _ := time.Now().Date()
+	byPubYear := elastic.NewTermQuery("PubYear", year)
+	q = q.Must(byPubYear)
+	return service.Query(q).Sort("CreateDate", false).From(0).Size(1000)
 }
 
-func GetLastThemes(from int64, to int64) ([]*Theme, error) {
-	year, month, day := time.Now().Date()
-	nowDayTime, _ := time.Parse(time.RFC3339, fmt.Sprintf("%02d-%02d-%02dT00:00:00+00:00", year, month, day))
+func GetLastThemes(elasticClient *elastic.Client, indexName string, durationValue int, duration time.Duration) ([]*Theme, error) {
+
 	finder := ThemeFinder{}
+
+	var nowDayTime time.Time
+
+	if durationValue == 0 {
+		year, month, day := time.Now().Date()
+		nowDayTime, _ = time.Parse(time.RFC3339, fmt.Sprintf("%02d-%02d-%02dT00:00:00+00:00", year, month, day))
+		
+		fmt.Printf("%d-%d-%d\r\n", year, month, day)
+		fmt.Printf("%d-%d\r\n", nowDayTime.Unix(), time.Now().Unix())
+	} else {
+		nowDayTime = time.Now().Add(-1 * duration * time.Duration(durationValue))
+		fmt.Printf("%d-%d\r\n", nowDayTime.Unix(), time.Now().Unix())
+	}
 
 	finder.CreateDateFrom(nowDayTime.Unix())
 	finder.CreateDateTo(time.Now().Unix())
 
-	return finder.Find(core.Units.Elastic, finder.GetLastDay())
+	return finder.Find(elasticClient, indexName, finder.GetLastDay)
 }
