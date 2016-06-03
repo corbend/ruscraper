@@ -82,14 +82,14 @@
 						</ul>
 					</div>
 				</div>
-				<div class="panel panel-success" style="height: 440px;">
+				<div class="panel panel-success" style="position: relative; min-height: 440px;">
 					<div class="panel-heading">
 						<h4>Themes</h4>
 						<div ng-show="blocks.themes.loading">
 							<i class="glyphicon glyphicon-refresh"></i>
 						</div>
 					</div>
-					<div class="panel-body">
+					<div class="panel-body" style="position: absolute; height: 370px; overflow-y: auto;">
 						<ul class="list-group" ng-repeat="theme in themes">
 							<li class="list-group-item"><strong>//$index+1	//</strong>//theme.Name//</li>
 						</ul>
@@ -97,11 +97,16 @@
 				</div>
 			</div>
 			<div class="col-md-3">
-				<div class="panel panel-info" style="min-height: 295px;">
-					<div class="panel-heading"><h4>Filters</h4></div>
-					<div class="panel-body">
-						<button class="btn btn-success" ng-click="toggleFilterSave()">//createFilter ? 'Save' : 'Create'//</button>
-						<button ng-show="createFilter" class="btn btn-default" ng-click="cancelNewFilter()">Cancel</button>
+				<div class="panel panel-info" style="position: relative; min-height: 440px;">
+					<div class="panel-heading">
+						<h4>Filters</h4>
+						<div class="pull-right" style="margin-top: -36px;">
+							<button class="btn btn-success" ng-click="toggleFilterSave()">//createFilter ? 'Save' : 'Create'//</button>
+							<button ng-show="createFilter" class="btn btn-default" ng-click="cancelNewFilter()">Cancel</button>
+						</div>
+					</div>
+					<div class="panel-body" style="position: absolute; height: 370px; overflow-y: auto;">
+						
 						<div ng-show="createFilter">
 							<form class="form-horizontal">
 								<input class="form-control" placeholder="Name" ng-model="newFilter.term_name">
@@ -124,9 +129,9 @@
 						</ul>
 					</div>					
 				</div>
-				<div class="panel panel-info" style="min-height: 295px;">
+				<div class="panel panel-info" style="position: relative; min-height: 440px;">
 					<div class="panel-heading"><h4>Categories</h4></div>
-					<div class="panel-body">
+					<div class="panel-body" style="position: absolute; height: 370px; overflow-y: auto;">
 						<button class="btn btn-success" ng-click="toggleCategorySave()">//createCategory ? 'Save' : 'Create'//</button>
 						<button ng-show="createCategory" class="btn btn-default" ng-click="cancelNewCategory()">Cancel</button>
 						<div ng-show="createCategory">
@@ -134,8 +139,8 @@
 								<input class="form-control" placeholder="Name" ng-model="newCategory.name">
 							</form>
 						</div>
-						<ul class="list-group">
-							<li class="list-group-item" ng-repeat="(key, category) in categories">
+						<ul class="list-group" style="position: relative; width: 100%">
+							<li class="list-group-item" ng-repeat="category in categories">
 								<span>//category.name//</span>
 								<button class="btn btn-primary" ng-click="applyFilter(category)">Apply</button>
 								<button class="btn btn-danger" ng-click="removeCategory(category)">Remove</button>

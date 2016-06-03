@@ -3,6 +3,7 @@ package models
 import (
 	"fmt"
 	"log"
+	"strings"
 	"reflect"
 	"database/sql"
 	_ "github.com/mattn/go-sqlite3"
@@ -32,8 +33,6 @@ func RunQuery(query string) (db *sql.DB, rows *sql.Rows){
 		log.Fatalf("errors on query %s\r\n", err)
 	}
 
-	fmt.Printf("query execution OK\r\n")
-
 	return db, rows
 }
 
@@ -58,8 +57,14 @@ func CreateTable(tableName string, model interface{}) (bool, error) {
 	tableColumns := ""
 
  	v := reflect.ValueOf(model)
+ 	foreignKeys := []reflect.StructField{}
 
 	for i := 0; i < v.NumField(); i++ {
+
+		if v.Type().Field(i).Type == reflect.TypeOf(ForeignKey{}) {
+			foreignKeys = append(foreignKeys, v.Type().Field(i))
+			continue
+		}
 
 		value := v.Field(i).Interface()
 		tagName := v.Type().Field(i).Tag.Get("json")
@@ -85,7 +90,14 @@ func CreateTable(tableName string, model interface{}) (bool, error) {
 		}
 	}
 
-	query := fmt.Sprintf("CREATE TABLE %s(id INTEGER PRIMARY KEY AUTOINCREMENT%s)", tableName, tableColumns);
+	constraints := ""
+
+	for _, field := range(foreignKeys) {
+		params := strings.Split(field.Tag.Get("fk"), ",")
+		constraints += fmt.Sprintf(", FOREIGN KEY(%s) REFERENCES %s(%s)", params[0], params[2], params[1])
+	}
+
+	query := fmt.Sprintf("CREATE TABLE %s(id INTEGER PRIMARY KEY AUTOINCREMENT%s%s)", tableName, tableColumns, constraints);
 	fmt.Println(query)
 	db2, r2 := RunQuery(query)
 

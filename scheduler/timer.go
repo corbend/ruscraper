@@ -7,7 +7,7 @@ import (
 
 func RunTimer(timeout int, runCallback func()) {
 
-	ticker := time.NewTicker(time.Millisecond * 10000)
+	ticker := time.NewTicker(time.Duration(timeout) * 1000 * time.Millisecond)
 	go func() {
 	    for t := range ticker.C {
             fmt.Println("Start Parse ->", t)

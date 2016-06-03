@@ -2,9 +2,7 @@ package models
 
 import (
 	"fmt"
-	"strconv"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/gin-gonic/gin"
 )
 
 type ThemeCategory struct {
@@ -29,24 +27,24 @@ func (self *ThemeCategory) SaveCategoryToDb() (bool, error) {
 	return true, nil
 }
 
-func GetAllCategories(c *gin.Context) (results gin.H) {
+func GetAllCategories() ([]ThemeCategory) {
 	fmt.Println("get categories")
 
 	filtersQuery := "SELECT id, name FROM categories"
 
 	db1, r1 := RunQuery(filtersQuery)
 
-	results = gin.H{}
+	results := []ThemeCategory{}
 	cnt := 0
 	for r1.Next() {
 		var themeFilter ThemeCategory
 		r1.Scan(&themeFilter.Id, &themeFilter.Name)
-		results[strconv.Itoa(cnt)] = themeFilter
+		results = append(results, themeFilter)
 		cnt += 1
 	}
 
 	r1.Close()
 	db1.Close()
 
-	return gin.H{"categories": results}
+	return results
 }

@@ -60,3 +60,12 @@ func SaveToStore(themes []models.Theme, indexName string) {
 		}
 	}
 }
+
+func GetLastItems(term string, indexName string) ([]*models.Theme, error) {
+
+	year := time.Now().Year()
+	finder := models.ThemeFinder{}
+	f := &finder
+	fmt.Println("search", term)
+	return f.Name(term).Year(year).Find(core.Units.Elastic, indexName, nil)
+}

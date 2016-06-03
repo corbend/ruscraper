@@ -3,7 +3,7 @@
 		"programming_videos",
 		"programming_books"
 	],
-	"parse_interval": 10,
+	"parse_interval": 60,
 	"parse_pages_num": 10,
 	"parse_urls": [
 		"http://maintracker.org/forum/viewforum.php?f=1565",

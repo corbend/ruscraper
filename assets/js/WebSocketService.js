@@ -8,12 +8,16 @@
 			var url = "ws://localhost:" + (port || 3000) + "/ws";
 			socket = new WebSocket(url);
 
-			socket.onmessage = function(msg){
+			socket.onmessage = function(event) {
+				msg = JSON.parse(event.data);
+				console.log("web socket message", msg);
 				if (msg.action == "parse_start") {
 					messageHandler(msg.action, msg.payload);
 				} else if (msg.action == "parse_complete") {
 					messageHandler(msg.action, msg.payload);
 				} else if (msg.action == "new_update") {
+					messageHandler(msg.action, msg.payload);
+				} else if (msg.action == "get_updates") {
 					messageHandler(msg.action, msg.payload);
 				}
 			}

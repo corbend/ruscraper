@@ -190,7 +190,7 @@
 
 		$scope.getCategories = function() {
 			return $http.get('/categories').success(function(resp) {
-				$scope.categories = resp.categories;
+				$scope.categories = resp.rows;
 			})
 		}
 

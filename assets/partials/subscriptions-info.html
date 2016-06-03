@@ -1,0 +1,14 @@
+<div class="panel panel-default" style="position: relative; min-height: 800px;">
+	<div class="panel-heading">
+		Subscriptions
+	</div>
+	<div class="panel-body" style="position: absolute; height: 740px; overflow-y: auto;">
+		<ul class="list-group">
+			<li class="list-group-item" ng-repeat="topic in filteredSubscriptions" ng-click="">
+				<strong>//$index + 1//</strong>
+				<span>//topic.Name//</span>
+				<button class="btn btn-success pull-right" style="margin-top: -6px;" ng-click="addToFavorites()"><i class="glyphicon glyphicon-heart"></i>Add To Favorites</button>
+			</li>
+		</ul>
+	</div>
+</div>

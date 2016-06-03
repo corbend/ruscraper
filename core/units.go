@@ -33,10 +33,12 @@ func SetupRedis() {
 func SetupDb() {
 
 	//SQLITE
-
+	models.CheckAndCreateTable("topics", models.Topic{})
 	models.CheckAndCreateTable("categories", models.ThemeCategory{})
 	models.CheckAndCreateTable("filters", models.ThemeFilter{})
 	models.CheckAndCreateTable("results", models.ParseResult{})
+	models.CheckAndCreateTable("users", models.User{})
+	models.CheckAndCreateTable("subscriptions", models.Subscription{})
 
 }
 

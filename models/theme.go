@@ -23,6 +23,11 @@ type Theme struct {
 	CreateDate int64
 }
 
+type SearchTheme struct {
+    Theme
+    SearchTerms []string
+}
+
 type Page struct {
 	Number int
 	Themes []Theme
@@ -60,7 +65,9 @@ func (f *ThemeFinder) Find(client *elastic.Client, indexName string, getQuery fu
 
     // Execute query
     sr, err := search.Do()
+    fmt.Println("SEARCH BY INDEX", indexName)
     if err != nil {
+        fmt.Println(err)
         return nil, err
     }
 
@@ -136,12 +143,15 @@ func (f *ThemeFinder) Query(service *elastic.SearchService) *elastic.SearchServi
 
     q := elastic.NewBoolQuery()
     if f.name != "" {
-        q = q.Must(elastic.NewTermQuery("Name", f.Name))
+        fmt.Println("search by name", f.name)
+        q = q.Must(elastic.NewMatchQuery("Name", f.name))
     }
     if f.pub_year > 0 {
+        fmt.Println("search by year", f.pub_year)
         q = q.Must(elastic.NewTermQuery("PubYear", f.pub_year))
     }
     if f.create_date > 0 {
+        fmt.Println("search by create date", f.pub_year)
     	q = q.Must(elastic.NewTermQuery("CreateDate", f.create_date))
     }
 

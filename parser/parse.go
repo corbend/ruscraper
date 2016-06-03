@@ -14,6 +14,7 @@ import (
 	"ruscraper/core"
 	"ruscraper/models"
 	"ruscraper/storage"
+	"ruscraper/helpers"
 )
 
 func DecodeUtf(str string) []rune {
@@ -29,7 +30,7 @@ func DecodeUtf(str string) []rune {
 	return runes
 }
 
-func fromCharmap(str string) string {
+func FromCharmap(str string) string {
 
 	sr := strings.NewReader(str)
 	tr := transform.NewReader(sr, charmap.Windows1251.NewDecoder())
@@ -105,6 +106,7 @@ func ParsePage(baseUrl string, p int, pageChan chan models.Page) {
 
 	if doc == nil {
 		fmt.Printf("page %d is nil\r\n", p)
+		helpers.SetTimeCounter("parse_fail")			
 		pageChan <- models.Page{p, []models.Theme{}}
 		return
 	}
@@ -112,7 +114,7 @@ func ParsePage(baseUrl string, p int, pageChan chan models.Page) {
 	doc.Find(".forumline tr.hl-tr td").Each(func(i int, s *goquery.Selection) {
 
 		title := s.Text()
-		decodedTitle := strings.Replace(fromCharmap(title), "\r\n", "", -1)
+		decodedTitle := strings.Replace(FromCharmap(title), "\r\n", "", -1)
 		if columnCnt % 5 == 0 {
 			theme = models.Theme{}
 			id_str, _ := s.Attr("id")
@@ -132,11 +134,11 @@ func ParsePage(baseUrl string, p int, pageChan chan models.Page) {
 						theme.PubYear = year
 					}
 				} else if columnCnt == 2 {
-					theme.Size = strings.Replace(fromCharmap(title), "\t", "", -1)
+					theme.Size = strings.Replace(FromCharmap(title), "\t", "", -1)
 				} else if columnCnt == 3 {
-					theme.Date = strings.Replace(fromCharmap(title), "\t", "", -1)
+					theme.Date = strings.Replace(FromCharmap(title), "\t", "", -1)
 				} else if columnCnt == 4 {
-					theme.Answers = strings.Replace(fromCharmap(title), "\t", "", -1)
+					theme.Answers = strings.Replace(FromCharmap(title), "\t", "", -1)
 					themes = append(themes, theme)
 				}
 			}

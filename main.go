@@ -1,6 +1,7 @@
 package main
 
-import (	
+import (
+	"os"
 	"fmt"
 	"log"
 	"time"
@@ -12,7 +13,9 @@ import (
 	"ruscraper/queue"
 	"ruscraper/scheduler"
 	"ruscraper/parser"
+	"ruscraper/storage"
 	"ruscraper/models"
+	"ruscraper/helpers"
 	"gopkg.in/olivere/elastic.v3"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -24,12 +27,20 @@ var wsupgrader = websocket.Upgrader{
 }
 
 type WebsockMessage struct {
-	Action string
-	Payload []byte
+	Action string `json:"action"`
+	Payload interface{} `json:"payload"`
 }
 
 type ParseStatusPayload struct {
 	Url string
+}
+
+type LastUpdatePayload struct {
+	Items []models.SearchTheme
+}
+
+type GetUpdateInPayload struct {
+	UserId int `json:"user_id"`
 }
 
 func wshandler(w http.ResponseWriter, r *http.Request) {
@@ -45,23 +56,27 @@ func wshandler(w http.ResponseWriter, r *http.Request) {
             break
         }
 
-        fmt.Println("web socket request", msg)
-
         var isActive = false;
 
         incomeWebsockMessage := WebsockMessage{}
 
         err = json.Unmarshal(msg, &incomeWebsockMessage)
 
+        if err != nil {
+        	fmt.Println("web socket message deserialization - error is occured")
+        }
+
+        fmt.Println("web socket request", t, incomeWebsockMessage)
+
         if incomeWebsockMessage.Action == "get_active_status" {
         	for i := 0; i < 10; i++ {
         		r, _ := core.Units.Redis.Get("active_parse_task_" + strconv.Itoa(i)).Result()
-        		if r == string(incomeWebsockMessage.Payload) {
+        		if r == incomeWebsockMessage.Payload.(string) {
         			isActive = true
         			websockMessage := WebsockMessage{}
         			websockMessage.Action = "parse_active"
         			payload := ParseStatusPayload{}
-        			payload.Url = string(incomeWebsockMessage.Payload)
+        			payload.Url = incomeWebsockMessage.Payload.(string)
         			p, _ := json.Marshal(&payload)
         			websockMessage.Payload = p
         			p, _ = json.Marshal(&websockMessage)
@@ -74,12 +89,59 @@ func wshandler(w http.ResponseWriter, r *http.Request) {
         		websockMessage := WebsockMessage{}
         		websockMessage.Action = "parse_nonactive"
         		payload := ParseStatusPayload{}
-        		payload.Url = string(incomeWebsockMessage.Payload)
+        		payload.Url = incomeWebsockMessage.Payload.(string)
         		p, _ := json.Marshal(&payload)
         		websockMessage.Payload = p
         		p, _ = json.Marshal(&websockMessage)
         		conn.WriteMessage(t, p)
         	}
+        } else if incomeWebsockMessage.Action == "get_updates" {
+        		
+    		inPayloadMap := incomeWebsockMessage.Payload.(map[string]interface{})
+
+    		userIdStr := inPayloadMap["user_id"].(string)
+
+    		if err != nil {
+    			fmt.Println("error on Deserialization")
+    		}
+
+        	fmt.Println("GET UPDATE ---", incomeWebsockMessage, userIdStr)
+        	websockMessage := WebsockMessage{}
+        	websockMessage.Action = "get_updates"
+        	
+        	payload := LastUpdatePayload{}
+        	userIdInt, _ := strconv.Atoi(userIdStr)
+        	subscriptions, _ := models.GetAllSubscriptionsJoined(userIdInt)
+
+        	themes := []models.SearchTheme{}
+        	themeIds := map[int64]string{}
+
+        	for _, indexName := range([]string{"programming_videos", "programming_books"}) {
+        		for _, subs := range(subscriptions) {
+        			items, _ := storage.GetLastItems(subs.CategoryName, indexName)
+        			for _, i := range(items) {
+        				ii := models.SearchTheme{}
+        				ii.Id = i.Id
+        				ii.Name = i.Name
+        				ii.CreateDate = i.CreateDate
+        				ii.PubYear = i.PubYear
+        				ii.Size = i.Size
+						ii.Date = i.Date
+						ii.Answers = i.Answers
+						ii.SearchTerms = []string{subs.CategoryName}
+
+        				if themeIds[i.Id] == "" {
+        					themes = append(themes, ii)
+        					themeIds[i.Id] = i.Name
+        				}
+        			}					
+				}
+        	}
+
+        	payload.Items = themes
+    		websockMessage.Payload = payload
+    		p, _ := json.Marshal(&websockMessage)
+        	conn.WriteMessage(t, p)
         }
     }
 }
@@ -113,6 +175,7 @@ func main() {
 		dateStr := fmt.Sprintf("%d-%d-%dT%d:00:00", year, month, day, date.Hour())
 
 		parseAttemps, _ := core.Units.Redis.Get("parse_attemps").Result()
+		parseFails, _ := helpers.GetTimeCounter("parse_fails")
 		runningTasksCnt, _ := core.Units.Redis.Get("running_tasks_cnt").Result()
 		newHitsCnt1, _ := core.Units.Redis.Get("new_hits_cnt_" + dateStr + "_programming_books").Result()
 		newHitsCnt2, _ := core.Units.Redis.Get("new_hits_cnt_" + dateStr + "_programming_videos").Result()
@@ -135,6 +198,7 @@ func main() {
 		
 		c.JSON(200, gin.H{
 			"parse_attemps": parseAttemps,
+			"parse_fail": parseFails,
 			"new_hits_cnt_" + dateStr + "_programming_books": newHitsCnt1,
 			"new_hits_cnt_" + dateStr + "_programming_videos": newHitsCnt2,
 			"new_hits_update_time": lastUpdateTime,
@@ -175,7 +239,7 @@ func main() {
 	})
 
 	router.GET("/categories", func(c *gin.Context) {
-		c.JSON(200, models.GetAllCategories(c))
+		c.JSON(200, gin.H{"rows": models.GetAllCategories()})
 	})
 
 	router.POST("/categories", func(c *gin.Context) {
@@ -195,15 +259,24 @@ func main() {
 		var applyFilter models.ThemeFilter
 		c.Bind(&applyFilter)
 
-		termQuery := elastic.NewTermQuery(applyFilter.TermName, applyFilter.TermValues)
+		var termQuery elastic.Query
+
+		if applyFilter.FilterType == "exact" {
+			termQuery = elastic.NewTermQuery(applyFilter.TermName, applyFilter.TermValues)
+		} else if applyFilter.FilterType == "match" {
+			termQuery = elastic.NewMatchQuery(applyFilter.TermName, applyFilter.TermValues)
+		} else {
+			fmt.Println("like query", applyFilter)
+			termQuery = elastic.NewMoreLikeThisQuery().LikeText(applyFilter.TermValues).Field(applyFilter.TermName)
+		}
 
 		searchResult, err := core.Units.Elastic.Search().
 		    Index(applyFilter.IndexName).
-		    Query(termQuery).   // specify the query
-		    Sort(applyFilter.TermName, true). // sort by "user" field, ascending
-		    From(0).Size(10).   // take documents 0-9
-		    Pretty(true).       // pretty print request and response JSON
-		    Do()                // execute
+		    Query(termQuery).
+		    Sort("CreateDate", true). 
+		    From(0).Size(1000).
+		    Pretty(true).
+		    Do()
 
 		if err != nil {
 		    // Handle error
@@ -286,6 +359,96 @@ func main() {
 		filterId, _ := strconv.Atoi(filterIdStr)
 		c.JSON(200, models.RemoveFilter(filterId, c))
 	})
+
+	router.GET("/topics", func(c *gin.Context) {
+		c.JSON(200, models.GetAllTopics())	
+	})
+
+	router.POST("/users", func(c *gin.Context) {
+		newUser := models.User{}
+		c.Bind(&newUser)
+
+		_, err := newUser.SaveUserToDb()
+
+		if err != nil {
+			c.JSON(500, gin.H{
+				"success": false,
+			})
+		} else {
+			c.JSON(200, gin.H{
+				"success": true,
+			})
+		}
+	})
+
+	router.POST("/login", func(c *gin.Context) {
+		newUser := models.User{}
+		c.Bind(&newUser)
+
+		userId, _ := newUser.GetFromDb()
+
+		if userId > 0 {
+			c.JSON(200, gin.H{"success": true, "Id": userId})
+		} else {
+			fmt.Println("user not found")
+			c.JSON(404, gin.H{"success": false, "message": "user not found"})
+		}
+	})
+
+	router.GET("/login", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "login.html", gin.H{})
+	})
+
+	router.GET("/users/register/", func(c *gin.Context) {		
+		c.HTML(http.StatusOK, "register.html", gin.H{})	
+	})
+
+	router.GET("/private/:userId", func(c *gin.Context) {
+		//TODO - проверка сессии
+		c.HTML(http.StatusOK, "user-dashboard.html", gin.H{})	
+	})
+
+	router.POST("/users/:id/subscribe", func(c *gin.Context) {
+
+		userId, _ := c.Params.Get("id")
+		userIdInt, _ := strconv.Atoi(userId)
+
+		var form = models.SubscriptionForm{}
+
+		c.Bind(&form)
+
+		models.DeleteSubscriptions(userIdInt)
+
+		for _, t := range(form.Categories) {
+			core.Units.Redis.SAdd("user_" + userId, strconv.Itoa(t))
+			subs := models.Subscription{}
+
+			subs.UserId = userIdInt
+			subs.CategoryId = t
+			subs.SaveSubscriptionToDb()
+		}
+
+		c.JSON(200, gin.H{"success": true})
+	})
+
+	router.GET("/subscriptions/:userId", func(c *gin.Context) {
+
+		userId, _ := c.Params.Get("userId")
+		userIdInt, _ := strconv.Atoi(userId)
+		subscriptions, _ := models.GetAllSubscriptions(userIdInt)
+
+		c.JSON(200, gin.H{"rows": subscriptions})
+	})
+
+	router.GET("/subscriptions/:userId/counters", func(c *gin.Context) {
+
+		c.JSON(200, gin.H{"counters": []int{}})
+	})
+
+	//get all topics from forum and save to model
+	if len(os.Args) == 2 && os.Args[1] == "hot" {
+		parser.GetAllTopics()
+	}
 
 	//run parsing in goroutine
 	queue.SetupConsumers()
