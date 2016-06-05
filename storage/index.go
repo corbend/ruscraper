@@ -66,6 +66,25 @@ func GetLastItems(term string, indexName string) ([]*models.Theme, error) {
 	year := time.Now().Year()
 	finder := models.ThemeFinder{}
 	f := &finder
-	fmt.Println("search", term)
 	return f.Name(term).Year(year).Find(core.Units.Elastic, indexName, nil)
+}
+
+func _GetItemsByIds(service *elastic.SearchService, ids []int, indexName string) (*elastic.SearchService) {
+
+	q := elastic.NewBoolQuery()
+
+	for _, id := range(ids) {
+		q = q.Should(elastic.NewTermQuery("Id", id))
+	}
+
+	return service.Query(q)
+}
+
+func GetItemsByIds(ids []int, indexName string)([]*models.Theme, error) {
+
+	f := &models.ThemeFinder{}
+
+	return f.Find(core.Units.Elastic, indexName, func(service *elastic.SearchService) (*elastic.SearchService) {
+		return _GetItemsByIds(service, ids, indexName)
+	})
 }

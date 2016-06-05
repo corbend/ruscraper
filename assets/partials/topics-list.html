@@ -1,11 +1,11 @@
-<div class="panel panel-default">
+<div class="panel panel-default" style="position: relative; min-height: 440px;">
 	<div class="panel-heading">
 		Topics
 	</div>
-	<div class="panel-body">
+	<div class="panel-body" style="position: absolute; left:0; right:0; height: 370px; overflow-y: auto;">
 		<ul class="list-group">
 			<li class="list-group-item" ng-repeat="topic in topics">
-				<span>//topic.name//</span>
+				<span>//topic.title//</span>
 			</li>
 		</ul>
 	</div>

@@ -4,6 +4,7 @@
 	<title>Ruscraper</title>
 	<link type="text/css" href="/assets/node_modules/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
 	<link type="text/css" href="/assets/node_modules/bootstrap/dist/css/bootstrap-theme.min.css" rel="stylesheet">
+	<link type="text/css" href="/assets/css/main.css" rel="stylesheet">
 	<script src="assets/node_modules/chart.js/dist/Chart.min.js"></script>
 	<script src="assets/node_modules/angular/angular.min.js"></script>
 	<script src="assets/js/main.js"></script>
@@ -76,7 +77,7 @@
 					</div>
 					<div class="panel-body" style="position: absolute; height: 350px; overflow-y: auto;">
 						<ul class="list-group" ng-repeat="(key, theme) in favoritesThemes">
-							<li class="list-group-item"><strong>//$index+1	//</strong>//theme.Name//
+							<li ng-class="{'new-theme': theme.IsNew, 'fresh-theme': theme.IsFresh}" class="list-group-item"><strong>//$index+1	//</strong>//theme.Name//
 								<span>//theme.CreateDateStr//</span>
 							</li>
 						</ul>

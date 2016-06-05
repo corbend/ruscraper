@@ -76,12 +76,15 @@ func CreateTable(tableName string, model interface{}) (bool, error) {
 		_, is_array := value.([]interface{})
 		_, is_str_array := value.([]string)
 		_, is_int_array := value.([]int)
+		_, is_bool := value.(bool)
 
 		if fieldName != "Id" {
 			if is_string {
 				tableColumns += fmt.Sprintf(", %s VARCHAR", tagName)
 			} else if is_int64 || is_int {
 				tableColumns += fmt.Sprintf(", %s INTEGER", tagName)
+			} else if is_bool {
+				tableColumns += fmt.Sprintf(", %s BOOLEAN", tagName)
 			} else if is_array || is_str_array || is_int_array {
 				fmt.Println("skip field", fieldName)
 			} else {

@@ -4,9 +4,11 @@
 	</div>
 	<div class="panel-body">
 		<ul class="list-group">
-			<li class="list-group-item" ng-repeat="topic in favTopics">
+			<li class="list-group-item" ng-repeat="topic in favorites">
+				<strong>//$index + 1//</strong>
 				<span>//topic.Name//</span>
-				<button class="btn btn-warning">Unwatch</button>
+				<button class="btn btn-warning pull-right" ng-click="getTorrentLink()">Get Link</button>
+				<button class="btn btn-warning pull-right">Unwatch</button>
 			</li>
 		</ul>
 	</div>

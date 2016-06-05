@@ -1,8 +1,11 @@
-<div class="panel panel-default">
+<div class="panel panel-default" style="position: relative; min-height: 440px;">
 	<div class="panel-heading">
 		Categories
+		<button class="btn btn-success pull-right" style="margin-top: -6px;" ng-click="applySubscriptions()">
+			Apply subscriptions
+		</button>
 	</div>
-	<div class="panel-body">
+	<div class="panel-body" style="position: absolute; left: 0; right: 0; height: 370px; overflow-y: auto;">
 		<ul class="list-group">
 			<li class="list-group-item" ng-repeat="cat in categories">
 				<input type="checkbox" ng-model="cat.subscribed">
@@ -14,8 +17,5 @@
 				<button ng-show="cat.filtered" class="btn btn-warning pull-right" ng-click="filterByCategory(cat)">Unfilter</button>
 			</li>
 		</ul>
-		<button class="btn btn-success" ng-click="applySubscriptions()">
-			Apply subscriptions
-		</button>
 	</div>
 </div>

@@ -14,6 +14,7 @@ type Topic struct {
 	IndexName string `json:"index_name"`
 	ParseUrl string `json:"parse_url"`
 	ExternalId int `json:"external_id"`
+	Restrict bool `json:"restrict"`
 }
 
 func FindTopicIds(topicIds []int) map[int]int {
@@ -53,9 +54,15 @@ func FindTopicIds(topicIds []int) map[int]int {
 
 func CreateTopic(topic Topic) (bool, error) {
 
-	query := "INSERT INTO topics (title, external_id) VALUES ("
-	query += fmt.Sprintf("'%s'", html.EscapeString(topic.Title)) + ","		
-	query += fmt.Sprintf("%d", topic.ExternalId) + ");"
+	query := "INSERT INTO topics (title, external_id, restrict) VALUES ("
+	query += fmt.Sprintf("'%s'", html.EscapeString(topic.Title)) + ","
+	query += fmt.Sprintf("%d", topic.ExternalId) + ","
+
+	if topic.Restrict {
+		query +=  "1);"
+	} else {
+		query +=  "0);"
+	}
 
 	db2, r2 := RunQuery(query)
 
@@ -70,7 +77,7 @@ func CreateTopic(topic Topic) (bool, error) {
 func GetAllTopics() (results []Topic) {
 	fmt.Println("get filters")
 
-	query := "SELECT id, title, index_name FROM topics"
+	query := "SELECT id, title, index_name FROM topics WHERE restrict=0 OR restrict IS NULL"
 
 	db1, r1 := RunQuery(query)
 

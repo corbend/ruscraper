@@ -15,11 +15,13 @@
 		}
 
 		$scope.loadTopics = function() {
-			var r = $http.get('/topics')
+			var r = $http.get('/topics');
 			r.success(function(resp) {
-				$scope.topics = resp.rows;
+				$scope.topics = resp;
 			})
 		}
+
+		$scope.loadTopics();
 
 		websocket.setMessageHandler(function(action, payload) {
 			if (action == "get_updates") {
@@ -49,18 +51,46 @@
 		}
 
 		$scope.addToFavorites = function(subscription) {
+			var userId = $location.$$absUrl.split("/").slice(-1)[0];
 
-			$http.post('/users/:id/favorites', subscription).success(function() {
+			$http.post('/subscriptions/' + userId + '/favorites/' + subscription.Id + "?indexName=" + subscription.IndexName, subscription).success(function(resp) {
+				console.log("add to favorites");
+			});
+		}
 
+		$scope.loadFavorites = function() {
+
+			var userId = $location.$$absUrl.split("/").slice(-1)[0];
+
+			var catIds = $scope.subscriptions.map(function(s) {
+				return s.CategoryId;
 			});
 
+			var indexNames = [];
+
+			$scope.categories.forEach(function(cat) {
+				if (catIds.indexOf(cat.Id) != -1) {
+					if (cat.IndexName) {
+						indexNames.push(cat.indexName);
+					}
+				}
+			})
+
+			var url = '/subscriptions/' + userId + "/favorites";
+			if (indexNames.length > 0) {
+				url += "?=indexName" + indexNames.join(",");
+			}
+			
+			$http.get(url).success(function(resp) {
+				$scope.favorites = resp;
+			});
 		}
 
 		$scope.loadSubscriptions = function() {
 			
 			var userId = $location.$$absUrl.split("/").slice(-1)[0];
-
-			$http.get('/subscriptions/' + userId).success(function(resp) {
+			var r = $http.get('/subscriptions/' + userId);
+			r.success(function(resp) {
 				$scope.subscriptions = resp.rows;
 				$scope.subscriptions.forEach(function(subs) {
 					$scope.categories.forEach(function(cat) {
@@ -68,8 +98,10 @@
 							cat.subscribed = true;
 						}
 					})
-				})
+				})				
 			});
+
+			return r;
 		}
 
 		$scope.loadCounters = function() {
@@ -90,7 +122,9 @@
 		}
 
 		$scope.loadCategories().then(function() {
-			$scope.loadSubscriptions();
+			$scope.loadSubscriptions().then(function() {
+				$scope.loadFavorites();
+			});
 		});
 
 		$scope.applyFilters = function() {

@@ -8,11 +8,13 @@ import (
 )
 
 type Conf struct {
+	MailServer string `json:"mail_server"`
 	ParseUrls []string `json:"parse_urls"`
 	ParsePagesNum int `json:"parse_pages_num"`
 	ElasticIndexes []string `json:"elastic.indexes"`
 	ParseInterval int `json:"parse_interval"`
 	UrlToElastic map[string]string `json:"url_to_elastic"`
+	TopicBlackList []int `json:"topic_black_list"`
 }
 
 func (self *Conf) Read() (err error) {

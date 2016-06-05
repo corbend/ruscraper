@@ -7,7 +7,7 @@
 			<li class="list-group-item" ng-repeat="topic in filteredSubscriptions" ng-click="">
 				<strong>//$index + 1//</strong>
 				<span>//topic.Name//</span>
-				<button class="btn btn-success pull-right" style="margin-top: -6px;" ng-click="addToFavorites()"><i class="glyphicon glyphicon-heart"></i>Add To Favorites</button>
+				<button class="btn btn-success pull-right" style="margin-top: -6px;" ng-click="addToFavorites(topic)"><i class="glyphicon glyphicon-heart"></i>Add To Favorites</button>
 			</li>
 		</ul>
 	</div>

@@ -21,6 +21,9 @@ type Theme struct {
 	Answers string
 	PubYear int
 	CreateDate int64
+    IsNew bool
+    IsFresh bool
+    IndexName string
 }
 
 type SearchTheme struct {
@@ -65,7 +68,6 @@ func (f *ThemeFinder) Find(client *elastic.Client, indexName string, getQuery fu
 
     // Execute query
     sr, err := search.Do()
-    fmt.Println("SEARCH BY INDEX", indexName)
     if err != nil {
         fmt.Println(err)
         return nil, err

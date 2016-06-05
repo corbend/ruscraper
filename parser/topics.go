@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"regexp"
 	"github.com/PuerkitoBio/goquery"
+	"ruscraper/core"
 	"ruscraper/models"
 )
 
@@ -90,9 +91,18 @@ func GetAllTopics() {
 
 	fmt.Println(existedTopics)
 
+	mapTopicToBlackList := map[int]bool{}
+
+	for _, extId := range(core.Config.TopicBlackList) {
+		mapTopicToBlackList[extId] = true
+	}
+
 	for _, t := range(predefinedIndexes) {
 
 		if existedTopics[t.ExternalId] == 0 {
+			if mapTopicToBlackList[t.ExternalId] != false {
+				t.Restrict = true
+			}
 			models.CreateTopic(t)
 		}
 	}

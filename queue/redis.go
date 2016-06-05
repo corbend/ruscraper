@@ -10,6 +10,7 @@ import (
 	"ruscraper/core"
 	"ruscraper/models"
 	"ruscraper/parser"
+	"ruscraper/notify"
 )
 
 type ParseTask struct {
@@ -90,6 +91,9 @@ func (self *TaskConsumer) Consume(delivery rmq.Delivery) {
     	fmt.Println("END parsing", task.Url)
 		r1 := models.ParseResult{0, time.Now().Unix(), "parse", "complete", task.Uuid}
 	    r1.SaveToDb()
+    } else if task.Action == "notify" {
+    	fmt.Println("SEND NOTIFY TO USER", task.Url)    	
+    	notify.SendNewThemesByMail(task.Url, task.Result)
     }
 
     return

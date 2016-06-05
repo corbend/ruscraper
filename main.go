@@ -43,6 +43,8 @@ type GetUpdateInPayload struct {
 	UserId int `json:"user_id"`
 }
 
+var indexNamesGlob = []string{"programming_videos", "programming_books"}
+
 func wshandler(w http.ResponseWriter, r *http.Request) {
     conn, err := wsupgrader.Upgrade(w, r, nil)
     if err != nil {
@@ -115,8 +117,9 @@ func wshandler(w http.ResponseWriter, r *http.Request) {
 
         	themes := []models.SearchTheme{}
         	themeIds := map[int64]string{}
+        	newThemes := []models.Theme{}
 
-        	for _, indexName := range([]string{"programming_videos", "programming_books"}) {
+        	for _, indexName := range(indexNamesGlob) {
         		for _, subs := range(subscriptions) {
         			items, _ := storage.GetLastItems(subs.CategoryName, indexName)
         			for _, i := range(items) {
@@ -124,11 +127,20 @@ func wshandler(w http.ResponseWriter, r *http.Request) {
         				ii.Id = i.Id
         				ii.Name = i.Name
         				ii.CreateDate = i.CreateDate
+
+        				createDt := time.Unix(ii.CreateDate, 0)
+
+    					if time.Since(createDt) < 3600 * 24 {
+    						ii.IsNew = true
+    						newThemes = append(newThemes, *i)
+    					}
+
         				ii.PubYear = i.PubYear
         				ii.Size = i.Size
 						ii.Date = i.Date
 						ii.Answers = i.Answers
 						ii.SearchTerms = []string{subs.CategoryName}
+						ii.IndexName = indexName
 
         				if themeIds[i.Id] == "" {
         					themes = append(themes, ii)
@@ -142,6 +154,12 @@ func wshandler(w http.ResponseWriter, r *http.Request) {
     		websockMessage.Payload = payload
     		p, _ := json.Marshal(&websockMessage)
         	conn.WriteMessage(t, p)
+
+			task := queue.ParseTask{}
+			task.Action = "notify"
+			task.Url = "thinkandwin5000@gmail.com"
+			task.Result = newThemes
+        	queue.RunTask(task)
         }
     }
 }
@@ -149,6 +167,20 @@ func wshandler(w http.ResponseWriter, r *http.Request) {
 type ElasticIndexStat struct {
 	Name string
 	TotalDocs int64
+}
+
+func SetNewFlag(themes []*models.Theme) ([]*models.Theme) {
+
+	for _, t := range(themes) {
+		createDt := time.Unix(t.CreateDate, 0)
+		if time.Since(createDt) < (24 * time.Hour) {
+			t.IsNew = true
+		} else if time.Since(createDt) < (24 * 7 * time.Hour) {
+			t.IsFresh = true
+		} 
+	}
+
+	return themes
 }
 
 func main() {
@@ -316,10 +348,13 @@ func main() {
 			records, _ = models.GetLastThemes(core.Units.Elastic, indexName, 0, time.Second)
 		} else if filterName == "Last5Days" {
 			records, _ = models.GetLastThemes(core.Units.Elastic, indexName, 24 * 5, time.Hour)
+			records = SetNewFlag(records)
 		} else if filterName == "Last10Days" {
 			records, _ = models.GetLastThemes(core.Units.Elastic, indexName, 24 * 10, time.Hour)
+			records = SetNewFlag(records)
 		} else if filterName == "LastMonth" {
 			records, _ = models.GetLastThemes(core.Units.Elastic, indexName, 24 * 31, time.Hour)
+			records = SetNewFlag(records)
 		}
 		
 		results := gin.H{}
@@ -443,6 +478,60 @@ func main() {
 	router.GET("/subscriptions/:userId/counters", func(c *gin.Context) {
 
 		c.JSON(200, gin.H{"counters": []int{}})
+	})
+
+	router.GET("/subscriptions/:userId/favorites", func(c *gin.Context) {
+
+		userId, _ := c.Params.Get("userId")
+		indexNames := c.Request.URL.Query().Get("indexName")
+		indexNamesArr := []string{}
+
+		if indexNames != "" {
+			indexNamesArr = strings.Split(indexNames, ",")
+		} else {
+			indexNamesArr = indexNamesGlob
+		}
+
+		results := []*models.Theme{}
+
+		for _, indexName := range(indexNamesArr) {
+			ids, _ := core.Units.Redis.SMembers("fav_" + indexName + "_" + userId).Result()
+			
+			fmt.Println("FAVS 	ids", ids)
+			intIds := []int{}
+
+			for _, i := range(ids) {
+				ii, _ := strconv.Atoi(i)
+				intIds = append(intIds, ii)
+			}
+
+			if len(intIds) > 0 {
+				result, _ := storage.GetItemsByIds(intIds, indexName)
+				for _, r := range(result) {
+					results = append(results, r)
+				}
+			}
+		}
+
+		c.JSON(200, results)	
+	})
+
+	router.POST("/subscriptions/:userId/favorites/:themeId", func(c *gin.Context) {
+
+		userId, _ := c.Params.Get("userId")
+		themeId, _ := c.Params.Get("themeId")
+		indexName := c.Request.URL.Query().Get("indexName")
+
+		err := core.Units.Redis.SAdd("fav_" + indexName + "_" + userId, themeId).Err()
+
+		is_err := false
+
+		if err != nil {
+			log.Fatalf("error on fav add", err)
+			is_err = true
+		}
+
+		c.JSON(200, gin.H{"success": !is_err})
 	})
 
 	//get all topics from forum and save to model
